@@ -1,0 +1,429 @@
+<div class="modal fade" id="staticBackdrop" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header bg-dark text-white border-0">
+        <div class="d-flex align-items-center">
+          <i class="fas fa-search me-3 fs-4"></i>
+          <h1 class="modal-title fs-4 fw-bold mb-0 text-white" id="staticBackdropLabel">Rechercher un film</h1>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+      </div>
+
+      <div class="modal-body p-4 bg-white">
+        <!-- Barre de recherche TMDB -->
+        <div class="mb-4">
+          <label class="form-label fw-bold text-dark mb-2">Rechercher sur TMDB</label>
+          <div class="input-group">
+            <input type="text"
+                   id="movieSearchInput"
+                   class="form-control form-control-lg border-2"
+                   placeholder="Tapez le nom d'un film..."
+                   style="border-radius: 8px 0 0 8px;">
+            <button class="btn btn-primary px-4"
+                    type="button"
+                    id="movieSearchBtn"
+                    style="border-radius: 0 8px 8px 0;">
+              <i class="fas fa-search"></i> Rechercher
+            </button>
+          </div>
+        </div>
+
+        <!-- Zone des résultats de recherche -->
+        <div id="movieResults" style="max-height: 400px; overflow-y: auto;" class="mb-4"></div>
+
+        <!-- Formulaire de commentaire (caché au début) -->
+        <div id="commentForm" style="display: none;">
+          <hr class="my-4">
+
+          <%= form_with model: [@list, Bookmark.new], local: true, html: { id: 'bookmarkForm' } do |f| %>
+            <%= f.hidden_field :tmdb_id, id: 'selectedMovieTmdbId' %>
+
+            <div class="mb-4">
+              <%= f.label :comment, "Votre commentaire sur ce film", class: "form-label fw-bold text-dark mb-2" %>
+              <%= f.text_area :comment,
+                  class: "form-control form-control-lg border-2",
+                  placeholder: "Qu'avez-vous pensé de ce film ? Vos impressions, votre note...",
+                  rows: 4,
+                  style: "border-radius: 8px;" %>
+            </div>
+
+            <div class="d-flex gap-3 justify-content-end">
+              <button type="button"
+                      class="btn btn-outline-secondary px-4 py-2"
+                      onclick="resetMovieSelection()">
+                <i class="fas fa-arrow-left me-2"></i>Retour à la recherche
+              </button>
+              <%= f.submit "Ajouter à ma liste",
+                  class: "btn btn-success px-4 py-2",
+                  style: "background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border: none;" %>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Variables globales pour éviter les conflits Turbo
+window.movieSearchGlobal = window.movieSearchGlobal || {
+  isSearching: false,
+  currentMovieData: null,
+  initialized: false,
+  searchFunction: null,
+  listeners: []
+};
+
+// Fonction d'initialisation qui bypass Turbo
+function initializeMovieSearchBypassTurbo() {
+  console.log('Initialisation bypass Turbo');
+
+  // Nettoyer les anciens listeners
+  window.movieSearchGlobal.listeners.forEach(listener => {
+    document.removeEventListener(listener.type, listener.handler);
+  });
+  window.movieSearchGlobal.listeners = [];
+
+  const searchInput = document.getElementById('movieSearchInput');
+  const searchBtn = document.getElementById('movieSearchBtn');
+  const resultsDiv = document.getElementById('movieResults');
+  const commentForm = document.getElementById('commentForm');
+  const tmdbIdInput = document.getElementById('selectedMovieTmdbId');
+
+  if (!searchInput || !searchBtn || !resultsDiv) {
+    console.error('Éléments du DOM non trouvés');
+    return;
+  }
+
+  // Fonction de recherche
+  window.movieSearchGlobal.searchFunction = function() {
+    console.log('Recherche déclenchée, isSearching:', window.movieSearchGlobal.isSearching);
+
+    if (window.movieSearchGlobal.isSearching) {
+      console.log('Recherche déjà en cours, ignorée');
+      return;
+    }
+
+    const query = searchInput.value.trim();
+    console.log('Recherche pour:', query);
+
+    if (query.length < 2) {
+      resultsDiv.innerHTML = '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle me-2"></i>Tapez au moins 2 caractères pour rechercher</div>';
+      return;
+    }
+
+    // Marquer comme en cours de recherche
+    window.movieSearchGlobal.isSearching = true;
+    searchBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Recherche...';
+    searchBtn.disabled = true;
+    resultsDiv.innerHTML = '<div class="text-center p-4"><i class="fas fa-spinner fa-spin fs-2 text-primary"></i><p class="mt-2">Recherche en cours sur TMDB...</p></div>';
+
+    // Appel à l'API avec gestion d'erreur robuste
+    fetch(`/search_movies?query=${encodeURIComponent(query)}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    })
+      .then(response => {
+        console.log('Réponse reçue:', response.status);
+        if (!response.ok) {
+          throw new Error(`Erreur HTTP: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(movies => {
+        console.log('Films trouvés:', movies.length);
+        displayMovies(movies);
+      })
+      .catch(error => {
+        console.error('Erreur lors de la recherche:', error);
+        resultsDiv.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-circle me-2"></i>Erreur lors de la recherche. Vérifiez votre connexion.</div>';
+      })
+      .finally(() => {
+        // Toujours réactiver le bouton
+        console.log('Recherche terminée, réactivation du bouton');
+        window.movieSearchGlobal.isSearching = false;
+        searchBtn.innerHTML = '<i class="fas fa-search"></i> Rechercher';
+        searchBtn.disabled = false;
+      });
+  };
+
+  // Afficher les résultats
+  function displayMovies(movies) {
+    if (movies.length === 0) {
+      resultsDiv.innerHTML = '<div class="alert alert-info text-center"><i class="fas fa-film me-2"></i>Aucun film trouvé. Essayez avec un autre titre.</div>';
+      return;
+    }
+
+    let html = `<h6 class="mb-3 text-primary"><i class="fas fa-list me-2"></i>${movies.length} film(s) trouvé(s) :</h6>`;
+
+    movies.forEach(movie => {
+      const posterUrl = movie.poster_path
+        ? `https://image.tmdb.org/t/p/w300${movie.poster_path}`
+        : 'https://via.placeholder.com/300x450?text=Pas+d%27affiche&bg=f8f9fa&color=6c757d';
+
+      const title = movie.title || 'Titre inconnu';
+      const overview = movie.overview
+        ? (movie.overview.length > 150 ? movie.overview.substring(0, 150) + '...' : movie.overview)
+        : 'Aucune description disponible';
+      const releaseDate = movie.release_date ? new Date(movie.release_date).getFullYear() : 'Année inconnue';
+      const rating = movie.vote_average ? movie.vote_average.toFixed(1) : 'N/A';
+
+      html += `
+        <div class="card mb-3 movie-card border-0 shadow-sm"
+             style="cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease;"
+             onclick="selectMovieGlobal(${movie.id}, '${title.replace(/'/g, "\\'")}', '${posterUrl}', '${overview.replace(/'/g, "\\'")}', '${releaseDate}', '${rating}')"
+             onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 8px 25px rgba(0,0,0,0.15)'"
+             onmouseout="this.style.transform='translateY(0px)'; this.style.boxShadow='0 2px 10px rgba(0,0,0,0.1)'">
+          <div class="row g-0">
+            <div class="col-md-3">
+              <img src="${posterUrl}"
+                   class="img-fluid rounded-start"
+                   style="height: 180px; object-fit: cover; width: 100%;"
+                   alt="Affiche de ${title}">
+            </div>
+            <div class="col-md-9">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                  <h6 class="card-title fw-bold text-dark mb-0">${title}</h6>
+                  <span class="badge bg-warning text-dark rounded-pill">
+                    <i class="fas fa-star me-1"></i>${rating}
+                  </span>
+                </div>
+                <p class="card-text text-muted small mb-2" style="line-height: 1.4;">${overview}</p>
+                <div class="d-flex justify-content-between align-items-center">
+                  <small class="text-muted">
+                    <i class="fas fa-calendar me-1"></i>Sortie: ${releaseDate}
+                  </small>
+                  <small class="text-primary fw-semibold">
+                    <i class="fas fa-mouse-pointer me-1"></i>Cliquer pour sélectionner
+                  </small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    resultsDiv.innerHTML = html;
+  }
+
+  // Event listeners avec bypass Turbo
+  const clickHandler = function(e) {
+    if (e.target && (e.target.id === 'movieSearchBtn' || e.target.closest('#movieSearchBtn'))) {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('Clic détecté sur le bouton de recherche');
+      window.movieSearchGlobal.searchFunction();
+    }
+  };
+
+  const keyHandler = function(e) {
+    if (e.target && e.target.id === 'movieSearchInput' && e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('Entrée pressée dans le champ de recherche');
+      window.movieSearchGlobal.searchFunction();
+    }
+  };
+
+  // Ajouter les listeners et les stocker pour nettoyage
+  document.addEventListener('click', clickHandler, true);
+  document.addEventListener('keypress', keyHandler, true);
+
+  window.movieSearchGlobal.listeners.push(
+    { type: 'click', handler: clickHandler },
+    { type: 'keypress', handler: keyHandler }
+  );
+
+  window.movieSearchGlobal.initialized = true;
+  console.log('Initialisation bypass Turbo terminée');
+}
+
+// Fonctions globales avec noms uniques
+window.selectMovieGlobal = function(tmdbId, title, posterUrl, overview, releaseDate, rating) {
+  console.log('Film sélectionné:', tmdbId, title);
+
+  const tmdbIdInput = document.getElementById('selectedMovieTmdbId');
+  const resultsDiv = document.getElementById('movieResults');
+  const commentForm = document.getElementById('commentForm');
+
+  // Stocker les données du film
+  window.movieSearchGlobal.currentMovieData = { tmdbId, title, posterUrl, overview, releaseDate, rating };
+
+  // Remplir le champ caché
+  if (tmdbIdInput) tmdbIdInput.value = tmdbId;
+
+  // Vider la zone de résultats
+  if (resultsDiv) resultsDiv.innerHTML = '';
+
+  // Afficher le formulaire de commentaire
+  if (commentForm) {
+    commentForm.style.display = 'block';
+    commentForm.scrollIntoView({ behavior: 'smooth' });
+  }
+
+  // Afficher la notification toast
+  showToastGlobal(`Film "${title}" sélectionné !`, 'success');
+};
+
+window.resetMovieSelectionGlobal = function() {
+  console.log('Reset de la sélection');
+  const commentForm = document.getElementById('commentForm');
+  const resultsDiv = document.getElementById('movieResults');
+  const searchInput = document.getElementById('movieSearchInput');
+  const tmdbIdInput = document.getElementById('selectedMovieTmdbId');
+  const searchBtn = document.getElementById('movieSearchBtn');
+
+  if (commentForm) commentForm.style.display = 'none';
+  if (resultsDiv) resultsDiv.innerHTML = '';
+  if (searchInput) {
+    searchInput.value = '';
+    setTimeout(() => searchInput.focus(), 100);
+  }
+  if (tmdbIdInput) tmdbIdInput.value = '';
+  if (searchBtn) {
+    searchBtn.disabled = false;
+    searchBtn.innerHTML = '<i class="fas fa-search"></i> Rechercher';
+  }
+
+  window.movieSearchGlobal.currentMovieData = null;
+  window.movieSearchGlobal.isSearching = false;
+};
+
+// Fonction toast globale
+function showToastGlobal(message, type = 'info') {
+  const existingToasts = document.querySelectorAll('.custom-toast');
+  existingToasts.forEach(toast => toast.remove());
+
+  const toast = document.createElement('div');
+  toast.className = `custom-toast alert alert-${type === 'success' ? 'success' : 'info'} position-fixed`;
+  toast.style.cssText = `
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    min-width: 300px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border: none;
+    animation: slideInRight 0.3s ease-out;
+  `;
+  toast.innerHTML = `
+    <i class="fas fa-${type === 'success' ? 'check-circle' : 'info-circle'} me-2"></i>
+    ${message}
+  `;
+
+  document.body.appendChild(toast);
+
+  setTimeout(() => {
+    if (toast.parentNode) {
+      toast.style.animation = 'slideOutRight 0.3s ease-in';
+      setTimeout(() => {
+        if (toast.parentNode) {
+          toast.remove();
+        }
+      }, 300);
+    }
+  }, 3000);
+}
+
+// Initialisation multiple pour bypass Turbo
+function initMultiple() {
+  console.log('Initialisation multiple pour bypass Turbo');
+  setTimeout(() => {
+    initializeMovieSearchBypassTurbo();
+    resetMovieSelectionGlobal();
+  }, 50);
+}
+
+// Tous les événements possibles pour bypass Turbo
+document.addEventListener('DOMContentLoaded', initMultiple);
+document.addEventListener('turbo:load', initMultiple);
+document.addEventListener('turbolinks:load', initMultiple);
+
+// Spécifique au modal Bootstrap
+document.addEventListener('shown.bs.modal', function(e) {
+  if (e.target && e.target.id === 'staticBackdrop') {
+    console.log('Modal Bootstrap ouvert');
+    initMultiple();
+  }
+});
+
+// Nettoyage à la fermeture
+document.addEventListener('hidden.bs.modal', function(e) {
+  if (e.target && e.target.id === 'staticBackdrop') {
+    console.log('Modal fermé, nettoyage');
+    resetMovieSelectionGlobal();
+    const toasts = document.querySelectorAll('.custom-toast');
+    toasts.forEach(toast => toast.remove());
+  }
+});
+
+// Mise à jour de la fonction dans le HTML
+window.resetMovieSelection = window.resetMovieSelectionGlobal;
+window.selectMovie = window.selectMovieGlobal;
+</script>
+
+
+<!-- Animations CSS -->
+<style>
+.movie-card:hover {
+  background-color: #f8f9fa !important;
+}
+
+.modal-lg {
+  max-width: 900px;
+}
+
+/* Animations pour les toasts */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.custom-toast {
+  border-radius: 8px !important;
+}
+
+@media (max-width: 768px) {
+  .modal-lg {
+    max-width: 95%;
+  }
+
+  .movie-card .col-md-3 {
+    flex: 0 0 auto;
+    width: 30%;
+  }
+
+  .movie-card .col-md-9 {
+    flex: 0 0 auto;
+    width: 70%;
+  }
+
+  .custom-toast {
+    right: 10px !important;
+    left: 10px !important;
+    min-width: auto !important;
+  }
+}
+</style>

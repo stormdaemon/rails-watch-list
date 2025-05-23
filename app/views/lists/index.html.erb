@@ -1,0 +1,96 @@
+<%= render partial: "navbar"%>
+
+<!-- Hero Section -->
+<div class="hero-section position-relative"
+     style="background-image: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.6)), url('https://c1.wallpaperflare.com/preview/570/413/91/interior-theatre-theater-empty-theater.jpg');
+            background-size: cover;
+            height: 300px;
+            background-position: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;">
+  <div class="text-center text-white">
+    <h1 class="display-4 fw-bold mb-3" style="text-shadow: 2px 2px 4px rgba(0,0,0,0.7);">
+      <i class="fas fa-film me-3"></i>Movie Collection
+    </h1>
+    <p class="lead mb-0" style="text-shadow: 1px 1px 2px rgba(0,0,0,0.7);">
+      Organisez et découvrez vos films préférés
+    </p>
+  </div>
+</div>
+
+<!-- Main Content -->
+<div class="container my-5">
+  <div class="row">
+    <div class="col-12">
+      <!-- Header avec bouton -->
+      <div class="d-flex justify-content-between align-items-center mb-4 p-4 bg-light rounded-3 shadow-sm">
+        <div>
+          <h2 class="mb-1 fw-bold text-dark">
+            <i class="fas fa-list-ul me-2 text-primary"></i>Mes Listes
+          </h2>
+          <p class="text-muted mb-0">Gérez vos collections de films</p>
+        </div>
+        <button class="btn btn-primary btn-lg px-4 py-2 rounded-pill shadow-sm"
+                data-bs-toggle="modal"
+                data-bs-target="#staticBackdrop">
+          <i class="fas fa-plus me-2"></i>Créer une liste
+        </button>
+      </div>
+
+      <!-- Cards Grid -->
+      <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        <% @lists.each do |list| %>
+        <div class="col">
+          <div class="card h-100 border-0 shadow-sm overflow-hidden">
+            <!-- Image de fond avec contenu centré -->
+            <div style="background-image: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.6)), url('https://t4.ftcdn.net/jpg/02/95/15/51/360_F_295155177_6NoGL871qYiqlAxvdL9YdeKWl9rqFM7C.jpg');
+                        background-size: cover;
+                        background-position: center;
+                        height: 280px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;">
+
+              <!-- Contenu centré -->
+              <div class="text-center">
+                <h3 class="text-white fw-bold mb-3" style="text-shadow: 2px 2px 4px rgba(0,0,0,0.8);">
+                  <%= link_to list.name, list_path(list), class: "text-white text-decoration-none" %>
+                </h3>
+
+                <!-- Badge avec nombre de films -->
+                <div class="d-flex justify-content-center">
+                  <span class="badge bg-primary rounded-pill px-3 py-2">
+                    <i class="fas fa-film me-1"></i>
+                    <% if list.respond_to?(:bookmarks) %>
+                      <%= list.bookmarks.count %> films
+                    <% else %>
+                      0 films
+                    <% end %>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <% end %>
+
+        <!-- Carte "Ajouter une liste" -->
+        <div class="col">
+          <div class="card h-100 border-2 border-dashed border-primary bg-light d-flex justify-content-center align-items-center"
+               style="height: 280px; cursor: pointer;"
+               data-bs-toggle="modal"
+               data-bs-target="#staticBackdrop">
+            <div class="text-center text-primary py-2">
+              <i class="fas fa-plus-circle mb-3" style="font-size: 3rem;"></i>
+              <h4 class="fw-bold">Ajouter une liste</h4>
+              <p class="text-muted">Créez une nouvelle collection</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%= render partial: "modal" %>

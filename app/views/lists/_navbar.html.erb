@@ -1,0 +1,56 @@
+<nav class="navbar navbar-expand-lg bg-white shadow-sm border-bottom"
+     style="padding: 1rem 0; backdrop-filter: blur(10px); background-color: rgba(255, 255, 255, 0.95) !important;">
+  <div class="container-fluid px-4">
+    <!-- Logo et titre -->
+    <div class="navbar-brand d-flex align-items-center me-auto">
+      <img src="https://cdn-icons-png.flaticon.com/512/3820/3820565.png"
+           alt="Movie Bookmarker Logo"
+           width="50"
+           height="50"
+           class="me-3 rounded-circle shadow-sm"
+           style="object-fit: cover;
+                  border: 2px solid #f8f9fa;
+                  transition: transform 0.3s ease;"
+           onmouseover="this.style.transform = 'scale(1.1)'"
+           onmouseout="this.style.transform = 'scale(1)'">
+      <span class="fw-bold fs-4 text-dark mb-0"
+            style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                   background: linear-gradient(135deg, #212529 0%, #495057 100%);
+                   -webkit-background-clip: text;
+                   -webkit-text-fill-color: transparent;
+                   background-clip: text;">
+        My Movie Bookmarker
+      </span>
+    </div>
+
+    <!-- Navigation links -->
+    <div class="navbar-nav ms-auto">
+      <%= link_to root_path,
+          class: "nav-link btn btn-outline-primary px-4 py-2 rounded-pill fw-semibold d-flex align-items-center",
+          style: "text-decoration: none;
+                  transition: all 0.3s ease;
+                  border: 2px solid #0d6efd;
+                  color: #0d6efd !important;
+                  background-color: transparent;",
+          onmouseover: "this.style.backgroundColor = '#0d6efd'; this.style.color = 'white'; this.style.transform = 'translateY(-2px)'; this.style.boxShadow = '0 4px 12px rgba(13, 110, 253, 0.3)'",
+          onmouseout: "this.style.backgroundColor = 'transparent'; this.style.color = '#0d6efd'; this.style.transform = 'translateY(0px)'; this.style.boxShadow = 'none'" do %>
+        <i class="fas fa-list me-2"></i>
+        Mes Listes
+      <% end %>
+    </div>
+  </div>
+</nav>
+
+<!-- CSS responsive intégré -->
+<style>
+  @media (max-width: 768px) {
+    .navbar-brand span {
+      font-size: 1.1rem !important;
+    }
+
+    .navbar-brand img {
+      width: 40px !important;
+      height: 40px !important;
+    }
+  }
+</style>
